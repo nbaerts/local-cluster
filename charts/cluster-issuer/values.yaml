@@ -1,0 +1,12 @@
+# Global app
+global:
+  email: youremail@domain.com
+
+# Cluster issue
+issuer:
+  name: letsencrypt-prod
+
+# Ingress 
+ingress:
+  class: nginx
+  serviceType: ClusterIP

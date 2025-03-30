@@ -1,0 +1,9 @@
+apiVersion: v2
+name: nginx-controler
+description: A nginx-controler for host network (based on https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/baremetal/deploy.yaml)
+sources:
+  - https://github.com/nbaerts/local-cluster
+maintainers:
+  - name: nbaerts
+type: application
+version: 1.0.0

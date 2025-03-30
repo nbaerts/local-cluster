@@ -1,0 +1,19 @@
+# Domain name
+CLUSTER_DOMAIN=
+
+# Cluster email
+CLUSTER_EMAIL=
+
+# Cluster applications (space separated)
+#  Known application: hello-world
+CLUSTER_APPS="hello-world"
+
+# DNS: Setup local DNS servers
+CLUSTER_LOCAL_DNS_SERVERS="8.8.8.8 8.8.4.4"
+
+# duckdns: duckdns.org token to keep the external IP of the duckdns.org domain up-to-date 
+DUCKDNS_TOKEN=
+
+# SSH connection: public rsa key to authorize
+SSH_AUTHORIZED_KEY=
+
