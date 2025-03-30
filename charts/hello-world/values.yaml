@@ -1,7 +1,6 @@
 # Global app
 global:
   host: web.domain.com
-  email: youremail@domain.com
 
 # Httpd image
 httpd:

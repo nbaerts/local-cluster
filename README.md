@@ -3,13 +3,13 @@
 ## Requirement
 Download the setup tool and the value-template.txt file on the target Debian(ish) server:
 ```
-curl -fsSL -o ~/local-cluster-setup.sh https://raw.githubusercontent.com/nbaerts/local-cluster/main/setup.sh && chmod 700 ~/setup.sh
-curl -fsSL -o ~/local-cluster-value.txt https://raw.githubusercontent.com/nbaerts/local-cluster/main/value-template.txt
+curl -o ~/local-cluster-setup.sh https://raw.githubusercontent.com/nbaerts/local-cluster/main/setup.sh && chmod 700 ~/local-cluster-setup.sh
+curl -o ~/local-cluster-values.txt https://raw.githubusercontent.com/nbaerts/local-cluster/main/value-template.txt
 ```
 Edit the value file `~/local-cluster-value.txt` as per the new local cluster to setup
 
 ## Setup the cluster
-Execute the following command under root (or sudo ):
+Execute the following command under root (or sudo root):
 ```
 ~/local-cluster-setup.sh -f ./local-cluster-values.txt install
 ```

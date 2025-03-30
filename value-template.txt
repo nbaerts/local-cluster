@@ -4,11 +4,10 @@ CLUSTER_DOMAIN=
 # Cluster email
 CLUSTER_EMAIL=
 
-# Cluster applications (space separated)
-#  Known application: hello-world
-CLUSTER_APPS="hello-world"
+# Cluster applications (space separated) [known apps: hello-world jellyfin]
+CLUSTER_APPS="jellyfin"
 
-# DNS: Setup local DNS servers
+# DNS: Setup local DNS servers (space separated) [empty if not needed]
 CLUSTER_LOCAL_DNS_SERVERS="8.8.8.8 8.8.4.4"
 
 # duckdns: duckdns.org token to keep the external IP of the duckdns.org domain up-to-date 

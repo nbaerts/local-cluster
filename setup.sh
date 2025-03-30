@@ -112,6 +112,17 @@ function installK0s {
   return 0
 }
 
+function createDirs {
+  for i in $CLUSTER_APPS
+  do
+    case $i in
+      'jellyfin' ) mkdir -p /opt/jellyfin/config || myExit "Unable to create '/opt/jellyfin/config'"
+                   mkdir -p /opt/media || myExit "Unable to create '/opt/media'";;
+    esac
+  done
+  return 0
+}
+
 function resetNode {
   myInfo "Reseting the k0s node..."
   k0s reset
@@ -158,7 +169,6 @@ EOF
         values: |
           global:
             host: $i.$CLUSTER_DOMAIN
-            email: $CLUSTER_EMAIL
 EOF
   done
   sed -n '/concurrencyLevel:/,$p' ~/local-cluster-k0s.yaml >>~/local-cluster-k0s.new.yaml || myExit "Unable to tail the new k0s config"
@@ -170,13 +180,28 @@ EOF
   return 0
 }
 
+function waitForHelm {
+  myInfo -n "Waiting for the $1 deployment"
+  let i=24
+  while [[ $i -gt 0 ]]
+  do
+    printf '.'
+    let i=$i-1
+    [[ $(helm list --all-namespaces | grep "^$1.*deployed") != '' ]] && break
+    sleep 5
+  done
+  printf '\n'
+  [[ $(helm list --all-namespaces | grep "^$1.*deployed") == '' ]] && myExit "$1 not yet ready [$(helm -n $1 list)]"
+  return 0
+}
+
 function startNode {
   myInfo "Starting k0s..."
   k0s start || myExit "Unable to start k0s"
 
   myInfo -n "Waiting for the node"
   sleep 10
-  let i=12
+  let i=24
   while [[ $i -gt 0 ]]
   do
     printf '.'
@@ -190,19 +215,7 @@ function startNode {
   myInfo "Copying the kube.config..."
   mkdir -p ~/.kube && cp /var/lib/k0s/pki/admin.conf ~/.kube/config || myExit "Unable to copy the kube.config"
 
-  myInfo -n "Waiting for the cert-manager deployment"
-  let i=12
-  while [[ $i -gt 0 ]]
-  do
-    printf '.'
-    let i=$i-1
-    [[ $(helm -n cert-manager list | grep ^cert-manager.*deployed) != '' ]] && break
-    sleep 5
-  done
-  printf '\n'
-  helm -n cert-manager list
-  [[ $(helm -n cert-manager list | grep ^cert-manager.*deployed) == '' ]] && myExit "cert-manger not yet ready"
-
+  waitForHelm cert-manager
   myInfo "Set cert-manager deployment with 'dnsPolicy: Default'..."
   kubectl -n cert-manager get deployment cert-manager -o yaml > ~/cert-manager-deployment.yaml
   sed -i "s/dnsPolicy:.*$/dnsPolicy: Default/g" ~/cert-manager-deployment.yaml || myExit "Unbale to alter the cert-manager deployment config"
@@ -229,15 +242,17 @@ function installCluster {
   setupDuckdnsIpRefresh
   setupLocalDns
   installClusterTools
+  createDirs
 
   stopNode
   installK0s
   [[ $1 != '--upgrade' ]] && resetNode && createNodeConfig
   startNode
   
-  myInfo "Checking objects [kubectl get all --all-namespaces]..."
-  kubectl get all --all-namespaces
-  myInfo "Checking helm releases..."
+  for i in nginx-controler cluster-issuer $CLUSTER_APPS
+  do
+    waitForHelm $i
+  done
   helm list --all-namespaces
 
   if [[ $1 != '--upgrade' ]]

@@ -1,0 +1,13 @@
+# Global app
+global:
+  host: jellyfin.domain.com
+
+# Directories
+directories:
+  config: /opt/jellyfin/config
+  media: /opt/media
+
+# Ingress 
+ingress:
+  class: nginx
+  clusterIssuer: letsencrypt-prod
