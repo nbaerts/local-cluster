@@ -1,0 +1,9 @@
+apiVersion: v2
+name: prowlarr
+description: Indexer for the *arr stack
+sources:
+  - https://github.com/nbaerts/local-cluster
+maintainers:
+  - name: nbaerts
+type: application
+version: 1.0.0

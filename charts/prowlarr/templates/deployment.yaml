@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jellyfin
+  name: prowlarr
 spec:
   strategy:
-    type: RollingUpdate
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
-      app: jellyfin
+      app: prowlarr
   template:
     metadata:
       labels:
-        app: jellyfin
+        app: prowlarr
     spec:
       containers:
-        - name: jellyfin
-          image: "docker.io/jellyfin/jellyfin:latest"
+        - name: prowlarr
+          image: "lscr.io/linuxserver/prowlarr:latest"
           imagePullPolicy: IfNotPresent
           env:
             - name: PUID
@@ -25,31 +25,15 @@ spec:
               value: {{ .Values.global.gid | quote }}
             - name: TZ
               value: {{ .Values.global.tz | quote }}
-            - name: "JELLYFIN_PublishedServerUrl"
-              value: {{ .Values.global.host | quote }}
           ports:
             - name: http
-              containerPort: 8096
+              containerPort: 9696
               protocol: TCP
-          livenessProbe:
-            initialDelaySeconds: 10
-            tcpSocket:
-              port: http
-          readinessProbe:
-            initialDelaySeconds: 10
-            tcpSocket:
-              port: http
           volumeMounts:
             - mountPath: /config
               name: config
-            - mountPath: /media
-              name: media
       volumes:
         - name: config
           hostPath:
             path: {{ .Values.directories.config | quote }}
-            type: Directory
-        - name: media
-          hostPath:
-            path: {{ .Values.directories.media | quote }}
             type: Directory

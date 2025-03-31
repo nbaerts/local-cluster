@@ -1,13 +1,13 @@
 # Global app
 global:
-  host: jellyfin.domain.com
+  host: sonarr.domain.com
   uid: 1000
   gid: 1000
   tz: Etc/UTC
 
 # Directories
 directories:
-  config: /opt/jellyfin/config
+  config: /opt/sonarr/config
   media: /opt/media
 
 # Ingress 

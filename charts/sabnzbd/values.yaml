@@ -1,14 +1,14 @@
 # Global app
 global:
-  host: jellyfin.domain.com
+  host: sabnzbd.domain.com
   uid: 1000
   gid: 1000
   tz: Etc/UTC
 
 # Directories
 directories:
-  config: /opt/jellyfin/config
-  media: /opt/media
+  config: /opt/sabnzbd/config
+  media: /opt/media/usenet
 
 # Ingress 
 ingress:

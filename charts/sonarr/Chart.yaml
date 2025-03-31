@@ -1,0 +1,9 @@
+apiVersion: v2
+name: sonarr
+description: Automated TV show downloader
+sources:
+  - https://github.com/nbaerts/local-cluster
+maintainers:
+  - name: nbaerts
+type: application
+version: 1.0.0

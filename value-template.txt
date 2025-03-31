@@ -4,8 +4,11 @@ CLUSTER_DOMAIN=
 # Cluster email
 CLUSTER_EMAIL=
 
-# Cluster applications (space separated) [known apps: hello-world jellyfin]
-CLUSTER_APPS="jellyfin"
+# Cluster applications (space separated) [known apps: see https://github.com/nbaerts/local-cluster/]
+CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent sabnzbd"
+
+# Cluster timezone (see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List)
+CLUSTER_TZ="Etc/UTC"
 
 # DNS: Setup local DNS servers (space separated) [empty if not needed]
 CLUSTER_LOCAL_DNS_SERVERS="8.8.8.8 8.8.4.4"

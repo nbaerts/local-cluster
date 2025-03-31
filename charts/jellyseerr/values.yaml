@@ -1,14 +1,10 @@
 # Global app
 global:
-  host: jellyfin.domain.com
-  uid: 1000
-  gid: 1000
-  tz: Etc/UTC
+  host: jellyseerr.domain.com
 
 # Directories
 directories:
-  config: /opt/jellyfin/config
-  media: /opt/media
+  config: /opt/jellyseerr/config
 
 # Ingress 
 ingress:

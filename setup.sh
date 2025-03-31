@@ -2,10 +2,12 @@
 
 function usage {
   [[ $1 != '' ]] && echo "[ERROR] $1"
-  echo "Usage: $myBasename [-f <valueFile>] install | upgrade | uninstall"
+  echo "Usage: $myBasename [-f <valueFile>] install | upgrade | upgradeHelm | upgradeConfig | uninstall"
   echo "         -f <valueFile> : Value file containing the config to apply"
   echo "         install        : Install both required packages and k0s node"
   echo "         upgrade        : Upgrade both required packages and k0s node"
+  echo "         upgradeHelm    : Upgrade helm charts only [no downtime]"
+  echo "         upgradeConfig  : Upgrade the k0s config only [no downtime]"
   echo "         uninstall      : Uninstall k0s"
   echo "Desc.: Setup a k0s cluster with a single node"
   echo
@@ -113,12 +115,11 @@ function installK0s {
 }
 
 function createDirs {
+  mkdir -p /opt/media/torrents && chown local-cluster:local-cluster /opt/media /opt/media/torrents || myExit "Unable to create '/opt/media/torrents'"
+  mkdir -p /opt/media/usenet && chown local-cluster:local-cluster /opt/media/usenet || myExit "Unable to create '/opt/media/usenet'"
   for i in $CLUSTER_APPS
   do
-    case $i in
-      'jellyfin' ) mkdir -p /opt/jellyfin/config || myExit "Unable to create '/opt/jellyfin/config'"
-                   mkdir -p /opt/media || myExit "Unable to create '/opt/media'";;
-    esac
+    mkdir -p /opt/$i/config && chown local-cluster:local-cluster /opt/$i /opt/$i/config || myExit "Unable to create '/opt/$i/config'"
   done
   return 0
 }
@@ -169,13 +170,19 @@ EOF
         values: |
           global:
             host: $i.$CLUSTER_DOMAIN
+            uid: $myUid
+            gid: $myGid
+            tz: $CLUSTER_TZ
 EOF
   done
   sed -n '/concurrencyLevel:/,$p' ~/local-cluster-k0s.yaml >>~/local-cluster-k0s.new.yaml || myExit "Unable to tail the new k0s config"
   mv ~/local-cluster-k0s.new.yaml ~/local-cluster-k0s.yaml || myExit "Unable to rename '~/local-cluster-k0s.new.yaml'"
-  
+  return 0
+}
+
+function installControler {
   myInfo "Installing k0s controller..."
-  k0s install controller --single -c ~/local-cluster-k0s.yaml || myExit "Unable to install the new single k0s node"
+  k0s install controller --single --enable-dynamic-config -c ~/local-cluster-k0s.yaml || myExit "Unable to install the new single k0s node"
   systemctl daemon-reload || myExit "Unable to reload"
   return 0
 }
@@ -214,7 +221,10 @@ function startNode {
   
   myInfo "Copying the kube.config..."
   mkdir -p ~/.kube && cp /var/lib/k0s/pki/admin.conf ~/.kube/config || myExit "Unable to copy the kube.config"
+  return 0
+}
 
+function fixCertManager {
   waitForHelm cert-manager
   myInfo "Set cert-manager deployment with 'dnsPolicy: Default'..."
   kubectl -n cert-manager get deployment cert-manager -o yaml > ~/cert-manager-deployment.yaml
@@ -246,8 +256,9 @@ function installCluster {
 
   stopNode
   installK0s
-  [[ $1 != '--upgrade' ]] && resetNode && createNodeConfig
+  [[ $1 != '--upgrade' ]] && resetNode && createNodeConfig && installControler
   startNode
+  fixCertManager
   
   for i in nginx-controler cluster-issuer $CLUSTER_APPS
   do
@@ -274,6 +285,48 @@ function installCluster {
   return 0
 }
 
+function upgradeHelm {
+  helm repo add jetstack https://charts.jetstack.io || myExit "Unable to add the 'jetstack' repo" 
+  helm repo add nbaerts  https://nbaerts.github.io/helm-repo  || myExit "Unable to add the 'nbaerts' repo"
+  helm repo update
+  helm list --all-namespaces --all --no-headers | while read myRelease myNamespace i
+  do
+    myChart="nbaerts/$myRelease"
+    [[ $myRelease == 'cert-manager' ]] && myChart="jetstack/cert-manager"
+    myInfo "Upgrading $myRelease [$myChart]..."
+    helm upgrade -n $myNamespace --wait $myRelease $myChart || myExit "Unable to upgrade $myRelease [$myChart]"
+  done
+  fixCertManager
+
+  echo
+  helm list --all-namespaces --all
+  echo
+  myInfo "Helm releases well upgraded"
+  echo
+  return 0
+}
+
+function upgradeConfig {
+  myVariables=
+  [[ $CLUSTER_DOMAIN == '' ]] && myVariables="$myVariables CLUSTER_DOMAIN"
+  [[ $CLUSTER_EMAIL  == '' ]] && myVariables="$myVariables CLUSTER_EMAIL"
+  [[ $myVariables != '' ]] && myExit "The variable(s)$myVariables should not be emptied"
+  
+  createDirs
+  createNodeConfig
+
+  myInfo "Applying new dynamic k0s cluster..."
+  kubectl apply -f ~/local-cluster-k0s.yaml || myExit "Unable to apply the new dynamic k0s cluster"
+  fixCertManager
+
+  echo
+  k0s config status
+  echo
+  myInfo "New k0s config well applied"
+  echo
+  return 0
+}
+
 function uninstallCluster {
   stopNode
   resetNode
@@ -290,6 +343,14 @@ myBasename=$(basename $0)
 myIp=$(hostname -I | awk '{print $1}')
 [[ $(whoami) != 'root' ]] && usage "Script to be executed under root"
 
+myGid=$(id -g local-cluster)
+if [[ $? -ne 0 ]]
+then
+  adduser --system local-cluster --group || myExit "Unable to create the system user 'local-cluster'"
+  myGid=$(id -g local-cluster) || myExit "System group 'local-cluster' not well created"
+fi
+myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
+
 while [[ $(echo "#$1" | cut -c2) == '-' ]]
 do
   case $1 in
@@ -302,9 +363,11 @@ do
 done
 
 case $1 in
-  'install'   ) installCluster;;
-  'upgrade'   ) installCluster --upgrade;;
-  'uninstall' ) uninstallCluster;;
-  *           ) usage "A valid action should be specified";;
+  'install'       ) installCluster;;
+  'upgrade'       ) installCluster --upgrade;;
+  'upgradeHelm'   ) upgradeHelm;;
+  'upgradeConfig' ) upgradeConfig;;
+  'uninstall'     ) uninstallCluster;;
+  *               ) usage "A valid action should be specified";;
 esac
 exit 0
