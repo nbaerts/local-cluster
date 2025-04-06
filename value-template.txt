@@ -5,7 +5,7 @@ CLUSTER_DOMAIN=
 CLUSTER_EMAIL=
 
 # Cluster applications (space separated) [known apps: see https://github.com/nbaerts/local-cluster/]
-CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent sabnzbd"
+CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent"
 
 # Cluster timezone (see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List)
 CLUSTER_TZ="Etc/UTC"

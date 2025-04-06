@@ -115,8 +115,7 @@ function installK0s {
 }
 
 function createDirs {
-  mkdir -p /opt/media/torrents && chown local-cluster:local-cluster /opt/media /opt/media/torrents || myExit "Unable to create '/opt/media/torrents'"
-  mkdir -p /opt/media/usenet && chown local-cluster:local-cluster /opt/media/usenet || myExit "Unable to create '/opt/media/usenet'"
+  mkdir -p /opt/media/ && chown local-cluster:local-cluster /opt/media || myExit "Unable to create '/opt/media'"
   for i in $CLUSTER_APPS
   do
     mkdir -p /opt/$i/config && chown local-cluster:local-cluster /opt/$i /opt/$i/config || myExit "Unable to create '/opt/$i/config'"

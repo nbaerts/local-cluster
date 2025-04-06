@@ -8,7 +8,7 @@ global:
 # Directories
 directories:
   config: /opt/qbittorrent/config
-  media: /opt/media/torrents
+  media: /opt/media
 
 # Ingress 
 ingress:
