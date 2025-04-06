@@ -8,7 +8,7 @@ global:
 # Directories
 directories:
   config: /opt/sabnzbd/config
-  media: /opt/media/usenet
+  media: /opt/media
 
 # Ingress 
 ingress:
