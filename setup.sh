@@ -42,7 +42,7 @@ function installPackage {
   myInfo "Upgrading the OS..."
   apt update && apt upgrade -y
   myInfo "Installing apt packages..."
-  apt install -y ufw net-tools curl git dnsmasq apache2-utils apt-transport-https ca-certificates || myExit "Unable to install apt packages"
+  apt install -y ufw net-tools curl git dnsmasq apache2-utils apt-transport-https ca-certificates rclone || myExit "Unable to install apt packages"
   return 0
 }
 
@@ -65,8 +65,34 @@ function setupDuckdnsIpRefresh {
   myInfo "Adding the refresh of the external IP for the sub-domain '$mySubDomain'..."
   mkdir -p /opt/duckdns || myExit "Unable to create '/opt/duckdns'"
   echo "echo url=\"https://www.duckdns.org/update?domains=${mySubDomain}&token=${DUCKDNS_TOKEN}&ip=\" | curl -k -o /opt/duckdns/duck.log -K -" >/opt/duckdns/duck.sh && chmod 700 /opt/duckdns/duck.sh || myExit "Unable to create '/opt/duckdns/duck.sh'"
-  crontab -l | grep -v 'duck.sh' >/opt/duckdns/duck.crontab && printf '*/5 * * * * /opt/duckdns/duck.sh >/dev/null 2>&1\n\n' >>/opt/duckdns/duck.crontab || myExit "Unable to create '/opt/duckdns/duck.crontab'"
+  crontab -l | egrep -v -e '^$' -e 'duck.sh' >/opt/duckdns/duck.crontab && printf '*/5 * * * * /opt/duckdns/duck.sh >/dev/null 2>&1\n\n' >>/opt/duckdns/duck.crontab || myExit "Unable to create '/opt/duckdns/duck.crontab'"
   crontab /opt/duckdns/duck.crontab || myExit "Unable to update the crontab"
+  return 0
+}
+
+function setupBackup {
+  [[ $RCLONE_END_POINT == '' ]] && return 0
+  myInfo "Adding the backup of the config using rclone..."
+  mkdir -p /opt/backup/local-cluster || myExit "Unable to create '/opt/backup/local-cluster'"
+  myFiles=
+  for i in $CLUSTER_APPS
+  do
+    myFiles="$myFiles /opt/$i/config"
+  done
+  cat >/opt/backup/local-cluster.sh << EOF
+myTar="/opt/backup/local-cluster/local-cluster.\$(date '+%Y-%m-%d').tar"
+echo "INFO: Backuping [\$myTar]..."
+tar --exclude='/opt/*/config/metadata' --exclude='/opt/*/config/Backups' --exclude='/opt/*/config/logs' -cvf \$myTar $myFiles && gzip \$myTar || exit 2
+echo "INFO: Keeping the last 3 backups only..."
+ls -tp | grep -v '/$' | tail -n +4 | xargs -I {} rm -- {}
+echo "INFO: Pushing backup with rclone..."
+rclone mkdir $RCLONE_END_POINT:local-cluster && rclone -v sync /opt/backup/local-cluster $RCLONE_END_POINT:local-cluster >/opt/backup/local-cluster.log 2>&1 || exit 2
+exit 0
+EOF
+  [[ $? -ne 0 ]] && myExit "Not able to create '/opt/backup/local-cluster.sh'"
+  chmod 755 /opt/backup/local-cluster.sh || myExit "Not able to chmod '/opt/backup/local-cluster.sh'"
+  crontab -l | egrep -v -e '^$' -e 'local-cluster.sh' >/opt/backup/local-cluster.crontab && printf '0 2 * * * /opt/backup/local-cluster.sh >/opt/backup/local-cluster.log 2>&1\n\n' >>/opt/backup/local-cluster.crontab || myExit "Unable to create '/opt/backup/local-cluster.crontab'"
+  crontab /opt/backup/local-cluster.crontab || myExit "Unable to update the crontab"
   return 0
 }
 
@@ -249,6 +275,7 @@ function installCluster {
   installPackage
   setupUfw
   setupDuckdnsIpRefresh
+  setupBackup
   setupLocalDns
   installClusterTools
   createDirs
@@ -271,6 +298,7 @@ function installCluster {
     myPorts="443 80"
     [[ $CLUSTER_LOCAL_DNS_SERVERS != ''  ]] && myInfo "The local cluster should be set as first DNS"
     myInfo "The ports 80 and 443 should be opened and forwarded to the local cluster"
+    [[ $RCLONE_END_POINT != '' && ! -s ~/.config/rclone/rclone.conf ]] && myInfo "rclone should be configured to add the end point '$RCLONE_END_POINT' in order to allow backups [rclone config]"
     for i in $CLUSTER_APPS
     do
       myInfo "  +> https://$i.$CLUSTER_DOMAIN"
