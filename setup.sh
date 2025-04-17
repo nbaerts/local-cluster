@@ -167,6 +167,8 @@ function createNodeConfig {
         url: https://charts.jetstack.io
       - name: nbaerts
         url: https://nbaerts.github.io/helm-repo
+      - name: kubernetes-dashboard
+        url: https://kubernetes.github.io/dashboard/
       charts:
       - name: nginx-controler
         chartname: nbaerts/nginx-controler
@@ -187,8 +189,30 @@ function createNodeConfig {
             email: $CLUSTER_EMAIL
 EOF
   [[ $? -ne 0 ]] && myExit "Unable to add the default helm charts in the new k0s config"
+  if [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') != '' ]]
+  then
+    cat >>~/local-cluster-k0s.new.yaml << EOF
+      - name: dashboard
+        chartname: kubernetes-dashboard/kubernetes-dashboard
+        namespace: dashboard
+        order: 4
+        values: |
+          app:
+            ingress:
+              enabled: true
+              ingressClassName: nginx
+              issuer:
+                scope: cluster
+                name: $myCertIssuer
+              hosts:
+                - dashboard.$CLUSTER_DOMAIN
+              tls:
+                secretName: dashboard-tls
+EOF
+  fi
   for i in $CLUSTER_APPS
   do
+    [[ $i == 'dashboard' ]] && continue
     cat >>~/local-cluster-k0s.new.yaml << EOF
       - name: $i
         chartname: nbaerts/$i
@@ -200,10 +224,8 @@ EOF
             uid: $myUid
             gid: $myGid
             tz: $CLUSTER_TZ
-EOF
-    [[ $myUseStagingCerts == 'Y' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF          
           ingress:
-            clusterIssuer: letsencrypt-staging
+            clusterIssuer: $myCertIssuer
 EOF
     [[ $i == 'vaultwarden' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
           adminToken: 
@@ -279,6 +301,51 @@ function fixCertManager {
   return 0
 }
 
+function createDashboardAccessToken {
+  [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') == '' ]] && return 0
+  waitForHelm dashboard
+  myInfo "Creating the dashboard admin user..."
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: dashboard
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user
+  namespace: dashboard
+  annotations:
+    kubernetes.io/service-account.name: "admin-user"   
+type: kubernetes.io/service-account-token
+EOF
+  [[ $? -ne 0 ]] && myExit "Unable to create the dashboard admin user"
+  return 0
+}
+
+function getDashboardAccessToken {
+  [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') == '' ]] && return 0
+  myInfo "Dashboard access token:"
+  kubectl get secret admin-user -n dashboard -o jsonpath="{.data.token}" | base64 -d
+  echo
+  return 0
+}
+
 function removeK0s {
   myInfo "Removing k0s..."
   rm -f /usr/local/bin/k0s || myExit "Unable to remove '/usr/local/bin/k0s'"
@@ -305,6 +372,7 @@ function installCluster {
   [[ $1 != '--upgrade' ]] && resetNode && createNodeConfig && installControler
   startNode
   fixCertManager
+  createDashboardAccessToken
   
   for i in nginx-controler cluster-issuer $CLUSTER_APPS
   do
@@ -330,6 +398,8 @@ function installCluster {
     myInfo "k0s cluster well upgraded"
     echo
   fi
+  getDashboardAccessToken
+  echo
   return 0
 }
 
@@ -399,11 +469,11 @@ then
 fi
 myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
 
-myUseStagingCerts=
+myCertIssuer='letsencrypt-prod'
 while [[ $(echo "#$1" | cut -c2) == '-' ]]
 do
   case $1 in
-    '--staging' ) myUseStagingCerts='Y'
+    '--staging' ) myCertIssuer='letsencrypt-staging'
                   shift 1;;
     '-f'        ) [[ $2 == '' || ! -s $2 ]] && usage "An non-empty value file should be provided"
                   myInfo "Applying value file '$2'..."

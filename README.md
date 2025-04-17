@@ -47,7 +47,8 @@ Execute the following command under root (or sudo root):
         - 🐯 [`prowlarr`](https://github.com/Prowlarr/Prowlarr): Indexer for the *arr stack
         - ⏬ [`qbittorrent`](https://www.qbittorrent.org/): Torrent client
         - 📰 [`sabnzbd`](https://sabnzbd.org/): Usenet download tool
-- 🔒 [`vaultwarden`](https://github.com/dani-garcia/vaultwarden):  Lightweight, open-source server for Bitwarden clients (password manager,...)
+- 🔒 [`vaultwarden`](https://github.com/dani-garcia/vaultwarden): Lightweight, open-source server for Bitwarden clients (password manager,...)
+- ⚙️ [`dashboard`](https://github.com/kubernetes/dashboard/): Kubernetes dashboard
 
 ## Thanks
 Built on the backs of [`k0s`](https://docs.k0sproject.io/stable/), [`ultimatehomeserver.com`](https://ultimatehomeserver.com/), [`*arr stack`](https://wiki.servarr.com/), [`linuxserver.io`](https://www.linuxserver.io/), and more awesome open-source projects.
