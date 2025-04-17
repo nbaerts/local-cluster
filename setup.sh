@@ -42,7 +42,7 @@ function installPackage {
   myInfo "Upgrading the OS..."
   apt update && apt upgrade -y
   myInfo "Installing apt packages..."
-  apt install -y ufw net-tools curl git dnsmasq apache2-utils apt-transport-https ca-certificates rclone || myExit "Unable to install apt packages"
+  apt install -y ufw dnsmasq net-tools curl git apache2-utils apt-transport-https ca-certificates rclone argon2 || myExit "Unable to install apt packages"
   return 0
 }
 
@@ -97,6 +97,7 @@ EOF
 }
 
 function setupLocalDns {
+  #TODO: To replace by Pi-hole [https://install.pi-hole.net]?
   [[ $CLUSTER_LOCAL_DNS_SERVERS == '' ]] && return 0
   if [[ $(grep "^address=.*$CLUSTER_DOMAIN" /etc/dnsmasq.conf) == '' ]]
   then
@@ -151,7 +152,7 @@ function createDirs {
 
 function resetNode {
   myInfo "Reseting the k0s node..."
-  k0s reset
+  k0s reset 2>/dev/null
   return 0
 }
 
@@ -198,6 +199,20 @@ EOF
             uid: $myUid
             gid: $myGid
             tz: $CLUSTER_TZ
+EOF
+    [[ $i == 'vaultwarden' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
+          adminToken: 
+            value: $VAULTWARDEN_ADMIN_TOKEN
+          smtp:
+            host: $SMTP_HOST
+            security: $SMTP_SECURITY
+            port: $SMTP_PORT
+            from: $CLUSTER_EMAIL
+            username:
+              value: $SMTP_USERNAME
+            password:
+              value: $SMTP_PASSWORD
+            authMechanism: $SMTP_AUTHMECHANISM
 EOF
   done
   sed -n '/concurrencyLevel:/,$p' ~/local-cluster-k0s.yaml >>~/local-cluster-k0s.new.yaml || myExit "Unable to tail the new k0s config"
@@ -291,6 +306,7 @@ function installCluster {
     waitForHelm $i
   done
   helm list --all-namespaces
+  kubectl get certificates --all-namespaces
 
   if [[ $1 != '--upgrade' ]]
   then
