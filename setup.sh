@@ -2,7 +2,8 @@
 
 function usage {
   [[ $1 != '' ]] && echo "[ERROR] $1"
-  echo "Usage: $myBasename [-f <valueFile>] install | upgrade | upgradeHelm | upgradeConfig | uninstall"
+  echo "Usage: $myBasename [--staging] [-f <valueFile>] install | upgrade | upgradeHelm | upgradeConfig | uninstall"
+  echo "         --staging      : Use Let's Encrypt staging certificates to avoid rate limits while testing"
   echo "         -f <valueFile> : Value file containing the config to apply"
   echo "         install        : Install both required packages and k0s node"
   echo "         upgrade        : Upgrade both required packages and k0s node"
@@ -200,6 +201,10 @@ EOF
             gid: $myGid
             tz: $CLUSTER_TZ
 EOF
+    [[ $myUseStagingCerts == 'Y' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF          
+          ingress:
+            clusterIssuer: letsencrypt-staging
+EOF
     [[ $i == 'vaultwarden' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
           adminToken: 
             value: $VAULTWARDEN_ADMIN_TOKEN
@@ -394,14 +399,17 @@ then
 fi
 myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
 
+myUseStagingCerts=
 while [[ $(echo "#$1" | cut -c2) == '-' ]]
 do
   case $1 in
-    '-f'      ) [[ $2 == '' || ! -s $2 ]] && usage "An non-empty value file should be provided"
-                myInfo "Applying value file '$2'..."
-                . "$2" || myExit "Unable to interpret '$2'"
-                shift 2;;
-    *         ) usage "Unknown option '$1'";;
+    '--staging' ) myUseStagingCerts='Y'
+                  shift 1;;
+    '-f'        ) [[ $2 == '' || ! -s $2 ]] && usage "An non-empty value file should be provided"
+                  myInfo "Applying value file '$2'..."
+                  . "$2" || myExit "Unable to interpret '$2'"
+                  shift 2;;
+    *           ) usage "Unknown option '$1'";;
   esac
 done
 

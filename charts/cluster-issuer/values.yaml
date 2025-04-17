@@ -4,7 +4,8 @@ global:
 
 # Cluster issue
 issuer:
-  name: letsencrypt-prod
+  prod: letsencrypt-prod
+  staging: letsencrypt-staging
 
 # Ingress 
 ingress:
