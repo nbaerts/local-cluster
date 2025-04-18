@@ -5,7 +5,7 @@ CLUSTER_DOMAIN=
 CLUSTER_EMAIL=
 
 # Cluster applications (space separated) [known apps: see https://github.com/nbaerts/local-cluster/]
-CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent vaultwarden dashboard"
+CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent dashboard vaultwarden home-assistant"
 
 # Vaultwarden admin token (result of the command below)
 #   echo -n "<AdminToken>" | argon2 "$(openssl rand -base64 32)" -e -id -k 19456 -t 2 -p 1

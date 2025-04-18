@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: home-assistant
+  template:
+    metadata:
+      labels:
+        app: home-assistant
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.global.uid }}
+        runAsGroup: {{ .Values.global.gid }}
+        fsGroup: {{ .Values.global.gid }}
+      containers:
+        - name: home-assistant
+          image: "ghcr.io/home-assistant/home-assistant:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8123
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: http
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 2
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - mountPath: /config
+              name: config
+      initContainers:
+        - name: setup-config
+          image: mikefarah/yq:4
+          securityContext:
+            runAsUser: {{ .Values.global.uid }}
+            runAsGroup: {{ .Values.global.gid }}
+            fsGroup: {{ .Values.global.gid }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - /bin/sh /mnt/init/init.sh
+          volumeMounts:
+            - name: init-volume
+              mountPath: /mnt/init/init.sh
+              subPath: init.sh
+            - name: config-volume
+              mountPath: /config-templates
+            - name: config
+              mountPath: /config
+              
+      volumes:
+        - name: init-volume
+          configMap:
+            name: init-script
+        - name: config-volume
+          configMap:
+            name: hass-configuration
+        - name: config
+          hostPath:
+            path: {{ .Values.directories.config | quote }}
+            type: Directory

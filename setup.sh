@@ -10,6 +10,7 @@ function usage {
   echo "         upgradeHelm    : Upgrade helm charts only [no downtime]"
   echo "         upgradeConfig  : Upgrade the k0s config only [no downtime]"
   echo "         uninstall      : Uninstall k0s"
+  echo "         getToken       : Display dashboard access token"
   echo "Desc.: Setup a k0s cluster with a single node"
   echo
   exit 1
@@ -256,7 +257,7 @@ function installControler {
 
 function waitForHelm {
   myInfo -n "Waiting for the $1 deployment"
-  let i=24
+  let i=34
   while [[ $i -gt 0 ]]
   do
     printf '.'
@@ -339,9 +340,10 @@ EOF
 }
 
 function getDashboardAccessToken {
-  [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') == '' ]] && return 0
+  [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') == '' && $1 != '--force' ]] && return 0
   myInfo "Dashboard access token:"
   kubectl get secret admin-user -n dashboard -o jsonpath="{.data.token}" | base64 -d
+  echo
   echo
   return 0
 }
@@ -399,7 +401,6 @@ function installCluster {
     echo
   fi
   getDashboardAccessToken
-  echo
   return 0
 }
 
@@ -489,6 +490,7 @@ case $1 in
   'upgradeHelm'   ) upgradeHelm;;
   'upgradeConfig' ) upgradeConfig;;
   'uninstall'     ) uninstallCluster;;
+  'getToken'      ) getDashboardAccessToken --force;;
   *               ) usage "A valid action should be specified";;
 esac
 exit 0
