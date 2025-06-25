@@ -17,7 +17,7 @@ spec:
       containers:
         - name: jellyseerr
           image: "ghcr.io/fallenbagel/jellyseerr:latest"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 5055

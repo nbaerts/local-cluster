@@ -17,7 +17,7 @@ spec:
       containers:
         - name: qbittorrent
           image: "lscr.io/linuxserver/qbittorrent:latest"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: PUID
               value: {{ .Values.global.uid | quote }}

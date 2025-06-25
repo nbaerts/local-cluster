@@ -21,7 +21,7 @@ spec:
       containers:
         - name: vaultwarden
           image: "docker.io/vaultwarden/server:latest"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - configMapRef:
                 name: vaultwarden-config

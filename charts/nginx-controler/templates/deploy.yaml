@@ -8,6 +8,8 @@
 #    +> Manually remove:
 #        - namespace: ingress-nginx
 #        - service: ingress-nginx-controller
+#    +> Manually add this args into the nginx-ingress-controller:
+#        --default-ssl-certificate=$(POD_NAMESPACE)/ssl-certificate
   
 apiVersion: v1
 automountServiceAccountToken: true
@@ -368,6 +370,7 @@ spec:
         - --controller-class=k8s.io/ingress-nginx
         - --ingress-class=nginx
         - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --default-ssl-certificate=$(POD_NAMESPACE)/ssl-certificate
         - --validating-webhook=:8443
         - --validating-webhook-certificate=/usr/local/certificates/cert
         - --validating-webhook-key=/usr/local/certificates/key

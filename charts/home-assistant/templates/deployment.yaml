@@ -1,3 +1,4 @@
+{{- $dongles:= .Values.dongles }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,10 +19,11 @@ spec:
         runAsUser: {{ .Values.global.uid }}
         runAsGroup: {{ .Values.global.gid }}
         fsGroup: {{ .Values.global.gid }}
+        privileged: true
       containers:
         - name: home-assistant
           image: "ghcr.io/home-assistant/home-assistant:latest"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8123
@@ -67,7 +69,10 @@ spec:
               mountPath: /config-templates
             - name: config
               mountPath: /config
-              
+{{ range $dongle:= $dongles }}
+            - name: a{{ $dongle | lower }}a
+              mountPath: /dev/{{ $dongle }}
+{{- end }}              
       volumes:
         - name: init-volume
           configMap:
@@ -79,3 +84,9 @@ spec:
           hostPath:
             path: {{ .Values.directories.config | quote }}
             type: Directory
+{{ range $dongle:= $dongles }}
+        - name: a{{ $dongle  | lower }}a
+          hostPath:
+            path: /dev/{{ $dongle }}
+            type: CharDevice
+{{- end }}

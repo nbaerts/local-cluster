@@ -2,15 +2,14 @@
 
 function usage {
   [[ $1 != '' ]] && echo "[ERROR] $1"
-  echo "Usage: $myBasename [--staging] [-f <valueFile>] install | upgrade | upgradeHelm | upgradeConfig | uninstall"
-  echo "         --staging      : Use Let's Encrypt staging certificates to avoid rate limits while testing"
+  echo "Usage: $myBasename [-f <valueFile>] install | upgrade | upgradeHelm | upgradeConfig | uninstall | status"
   echo "         -f <valueFile> : Value file containing the config to apply"
   echo "         install        : Install both required packages and k0s node"
   echo "         upgrade        : Upgrade both required packages and k0s node"
   echo "         upgradeHelm    : Upgrade helm charts only [no downtime]"
   echo "         upgradeConfig  : Upgrade the k0s config only [no downtime]"
   echo "         uninstall      : Uninstall k0s"
-  echo "         getToken       : Display dashboard access token"
+  echo "         status         : k0s status"
   echo "Desc.: Setup a k0s cluster with a single node"
   echo
   exit 1
@@ -44,7 +43,7 @@ function installPackage {
   myInfo "Upgrading the OS..."
   apt update && apt upgrade -y
   myInfo "Installing apt packages..."
-  apt install -y ufw dnsmasq net-tools curl git apache2-utils apt-transport-https ca-certificates rclone argon2 || myExit "Unable to install apt packages"
+  apt install -y ufw dnsmasq net-tools curl git apache2-utils apt-transport-https ca-certificates rclone argon2 sudo unzip snapd || myExit "Unable to install apt packages"
   return 0
 }
 
@@ -69,6 +68,26 @@ function setupDuckdnsIpRefresh {
   echo "echo url=\"https://www.duckdns.org/update?domains=${mySubDomain}&token=${DUCKDNS_TOKEN}&ip=\" | curl -k -o /opt/duckdns/duck.log -K -" >/opt/duckdns/duck.sh && chmod 700 /opt/duckdns/duck.sh || myExit "Unable to create '/opt/duckdns/duck.sh'"
   crontab -l | egrep -v -e '^$' -e 'duck.sh' >/opt/duckdns/duck.crontab && printf '*/5 * * * * /opt/duckdns/duck.sh >/dev/null 2>&1\n\n' >>/opt/duckdns/duck.crontab || myExit "Unable to create '/opt/duckdns/duck.crontab'"
   crontab /opt/duckdns/duck.crontab || myExit "Unable to update the crontab"
+  return 0
+}
+
+function generateDuckdnsCertificate {
+  [[ $DUCKDNS_TOKEN == '' || $(echo "$CLUSTER_DOMAIN" | grep '.duckdns.org$') == '' ]] && return 0
+  myInfo "Install certbot for duckdns..."
+  snap install certbot --classic && snap install certbot-dns-duckdns && snap set certbot trust-plugin-with-root=ok && snap connect certbot:plugin certbot-dns-duckdns || myExit "Unable to install certbot for duckdns"
+  echo "dns_duckdns_token = $DUCKDNS_TOKEN" > /etc/letsencrypt/duckdns.ini && chmod 600 /etc/letsencrypt/duckdns.ini || myExit "Unable to create '/etc/letsencrypt/duckdns.ini'"
+  
+  myInfo "Generating the wildcard certificate for $CLUSTER_DOMAIN..."
+  certbot certonly --authenticator dns-duckdns --dns-duckdns-credentials /etc/letsencrypt/duckdns.ini --dns-duckdns-propagation-seconds 60 -d "*.$CLUSTER_DOMAIN" --agree-tos --non-interactive --email $CLUSTER_EMAIL || echo "WARNING: Unable to generate teh wildcard certificate"
+  [[ -s /etc/letsencrypt/live/$CLUSTER_DOMAIN/cert.pem ]] && myInfo "Certificate well generated" || myExit "Certificate '/etc/letsencrypt/live/$CLUSTER_DOMAIN/cert.pem' not found"
+
+  mkdir -p /opt/duckdns || myExit "Unable to create '/opt/duckdns'"
+  ( exec >/opt/duckdns/certbot.sh
+    echo "certbot renew"
+    echo "kubectl create secret tls ssl-certificate --cert=/etc/letsencrypt/live/$CLUSTER_DOMAIN/fullchain.pem --key=/etc/letsencrypt/live/$CLUSTER_DOMAIN/privkey.pem --namespace=ingress-nginx --dry-run=client -o yaml | kubectl apply -f -"
+  ) && chmod 700 /opt/duckdns/certbot.sh || myExit "Unable to create '/opt/duckdns/certbot.sh'"
+  crontab -l | egrep -v -e '^$' -e 'certbot.sh' >/opt/duckdns/cert.crontab && printf '0 4 * * * /opt/duckdns/certbot.sh >/opt/duckdns/certbot.log 2>&1\n\n' >>/opt/duckdns/cert.crontab || myExit "Unable to create '/opt/duckdns/cert.crontab'"
+  crontab /opt/duckdns/cert.crontab || myExit "Unable to update the crontab"
   return 0
 }
 
@@ -101,16 +120,25 @@ EOF
 function setupLocalDns {
   #TODO: To replace by Pi-hole [https://install.pi-hole.net]?
   [[ $CLUSTER_LOCAL_DNS_SERVERS == '' ]] && return 0
-  if [[ $(grep "^address=.*$CLUSTER_DOMAIN" /etc/dnsmasq.conf) == '' ]]
-  then
-    myInfo "Adding '$myIp' address for '$CLUSTER_DOMAIN'..."
-    echo "address=/$CLUSTER_DOMAIN/$myIp" >>/etc/dnsmasq.conf || myExit "Unable to add '$myIp' address for '$CLUSTER_DOMAIN'"
-  fi
+  myInfo "Adding '$myIp' address for '$CLUSTER_DOMAIN'..."
+  egrep -v -e "^address=.*$CLUSTER_DOMAIN" /etc/dnsmasq.conf >/tmp/dnsmasq.conf.$$.tmp
+  ( exec >/etc/dnsmasq.conf
+    cat /tmp/dnsmasq.conf.$$.tmp
+    echo "address=/$CLUSTER_DOMAIN/$myIp"
+  )
+  [[ $? -ne 0 ]] && rm -f /tmp/dnsmasq.conf.$$.tmp && myExit "Unable to add '$myIp' address for '$CLUSTER_DOMAIN'"
+  rm -f /tmp/dnsmasq.conf.$$.tmp
+  
   for i in $CLUSTER_LOCAL_DNS_SERVERS
   do
-    [[ $(grep "^server=$i" /etc/dnsmasq.conf) != '' ]] && continue
     myInfo "Adding DNS server '$i'..."
-    echo "server=$i" >>/etc/dnsmasq.conf || myExit "Unable to add server '$i'"
+    egrep -v -e "^server=$i" /etc/dnsmasq.conf >/tmp/dnsmasq.conf.$$.tmp
+    ( exec >/etc/dnsmasq.conf
+      cat /tmp/dnsmasq.conf.$$.tmp
+      echo "server=$i"
+    )
+    [[ $? -ne 0 ]] && rm -f /tmp/dnsmasq.conf.$$.tmp && myExit "Unable to add server '$i'"
+    rm -f /tmp/dnsmasq.conf.$$.tmp
   done
   systemctl restart dnsmasq || myExit "Unable to restart dnsmasq"
   return 0
@@ -140,12 +168,21 @@ function installK0s {
   myInfo "Installing k0s..."
   curl -sSLf https://get.k0s.sh | sh || myExit "Unable to install k0s"
   k0s version || myExit "k0s not well installed"
+
+  myServiceF='/etc/systemd/system/k0scontroller.service'
+  myInfo "Changing $myServiceF..."
+  if [[ -s $myServiceF ]]
+  then
+    sed -i 's#^ExecStart=.*$#ExecStart=/root/local-cluster-setup.sh -f /root/local-cluster-values.txt install#' $myServiceF || myExit "Unable to change $myServiceF"
+  fi
   return 0
 }
 
 function createDirs {
   mkdir -p /opt/media/ && chown local-cluster:local-cluster /opt/media || myExit "Unable to create '/opt/media'"
-  for i in $CLUSTER_APPS
+  myExtra=
+  [[ $(echo " $CLUSTER_APPS " | grep ' nextcloud ') != '' ]] && myExtra="mariadb redis"
+  for i in $CLUSTER_APPS $myExtra
   do
     mkdir -p /opt/$i/config && chown local-cluster:local-cluster /opt/$i /opt/$i/config || myExit "Unable to create '/opt/$i/config'"
   done
@@ -164,8 +201,6 @@ function createNodeConfig {
   sed -n '0,/helm:/p' ~/local-cluster-k0s.yaml >~/local-cluster-k0s.new.yaml || myExit "Unable to create the new k0s config"
   cat >>~/local-cluster-k0s.new.yaml << EOF
       repositories:
-      - name: jetstack
-        url: https://charts.jetstack.io
       - name: nbaerts
         url: https://nbaerts.github.io/helm-repo
       - name: kubernetes-dashboard
@@ -175,19 +210,6 @@ function createNodeConfig {
         chartname: nbaerts/nginx-controler
         namespace: ingress-nginx
         order: 1
-      - name: cert-manager
-        chartname: jetstack/cert-manager
-        namespace: cert-manager
-        order: 2
-        values: |
-          installCRDs: true
-      - name: cluster-issuer
-        chartname: nbaerts/cluster-issuer
-        namespace: cert-manager
-        order: 3
-        values: |
-          global:
-            email: $CLUSTER_EMAIL
 EOF
   [[ $? -ne 0 ]] && myExit "Unable to add the default helm charts in the new k0s config"
   if [[ $(echo " $CLUSTER_APPS " | grep ' dashboard ') != '' ]]
@@ -196,37 +218,30 @@ EOF
       - name: dashboard
         chartname: kubernetes-dashboard/kubernetes-dashboard
         namespace: dashboard
-        order: 4
+        order: 3
         values: |
           app:
             ingress:
               enabled: true
               ingressClassName: nginx
-              issuer:
-                scope: cluster
-                name: $myCertIssuer
               hosts:
                 - dashboard.$CLUSTER_DOMAIN
-              tls:
-                secretName: dashboard-tls
 EOF
   fi
   for i in $CLUSTER_APPS
   do
-    [[ $i == 'dashboard' ]] && continue
+    [[ $i == 'dashboard' || $i == 'mariadb' || $i == 'redis' ]] && continue
     cat >>~/local-cluster-k0s.new.yaml << EOF
       - name: $i
         chartname: nbaerts/$i
         namespace: $i
-        order: 4
+        order: 3
         values: |
           global:
             host: $i.$CLUSTER_DOMAIN
             uid: $myUid
             gid: $myGid
             tz: $CLUSTER_TZ
-          ingress:
-            clusterIssuer: $myCertIssuer
 EOF
     [[ $i == 'vaultwarden' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
           adminToken: 
@@ -241,6 +256,27 @@ EOF
             password:
               value: $SMTP_PASSWORD
             authMechanism: $SMTP_AUTHMECHANISM
+EOF
+    [[ $i == 'home-assistant' && $HA_DONGLES != '' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
+          dongles: [$HA_DONGLES]
+EOF
+    [[ $i == 'nextcloud' ]] && cat >>~/local-cluster-k0s.new.yaml << EOF
+      - name: mariadb
+        chartname: nbaerts/mariadb
+        namespace: $i
+        order: 2
+        values: |
+          global:
+            uid: $myUid
+            gid: $myGid
+      - name: redis
+        chartname: nbaerts/redis
+        namespace: $i
+        order: 2
+        values: |
+          global:
+            uid: $myUid
+            gid: $myGid
 EOF
   done
   sed -n '/concurrencyLevel:/,$p' ~/local-cluster-k0s.yaml >>~/local-cluster-k0s.new.yaml || myExit "Unable to tail the new k0s config"
@@ -257,7 +293,7 @@ function installControler {
 
 function waitForHelm {
   myInfo -n "Waiting for the $1 deployment"
-  let i=34
+  let i=60
   while [[ $i -gt 0 ]]
   do
     printf '.'
@@ -289,16 +325,6 @@ function startNode {
   
   myInfo "Copying the kube.config..."
   mkdir -p ~/.kube && cp /var/lib/k0s/pki/admin.conf ~/.kube/config || myExit "Unable to copy the kube.config"
-  return 0
-}
-
-function fixCertManager {
-  waitForHelm cert-manager
-  myInfo "Set cert-manager deployment with 'dnsPolicy: Default'..."
-  kubectl -n cert-manager get deployment cert-manager -o yaml > ~/cert-manager-deployment.yaml
-  sed -i "s/dnsPolicy:.*$/dnsPolicy: Default/g" ~/cert-manager-deployment.yaml || myExit "Unbale to alter the cert-manager deployment config"
-  kubectl apply -f ~/cert-manager-deployment.yaml || myExit "Unable to alter the cert-manager deployment"
-  rm -f ~/cert-manager-deployment.yaml
   return 0
 }
 
@@ -348,6 +374,15 @@ function getDashboardAccessToken {
   return 0
 }
 
+function getNextcloudPassword {
+  [[ $(echo " $CLUSTER_APPS " | grep ' nextcloud ') == '' && $1 != '--force' ]] && return 0
+  myInfo "Nextcloud admin password:"
+  kubectl get secret nextcloud -n nextcloud -o jsonpath="{.data.nextcloud-password}" | base64 -d
+  echo
+  echo
+  return 0
+}
+
 function removeK0s {
   myInfo "Removing k0s..."
   rm -f /usr/local/bin/k0s || myExit "Unable to remove '/usr/local/bin/k0s'"
@@ -364,6 +399,7 @@ function installCluster {
   installPackage
   setupUfw
   setupDuckdnsIpRefresh
+  generateDuckdnsCertificate
   setupBackup
   setupLocalDns
   installClusterTools
@@ -373,16 +409,16 @@ function installCluster {
   installK0s
   [[ $1 != '--upgrade' ]] && resetNode && createNodeConfig && installControler
   startNode
-  fixCertManager
+
+  [[ -x /opt/duckdns/certbot.sh ]] && /opt/duckdns/certbot.sh
+
   createDashboardAccessToken
   
-  for i in nginx-controler cluster-issuer $CLUSTER_APPS
+  for i in nginx-controler $CLUSTER_APPS
   do
     waitForHelm $i
   done
-  helm list --all-namespaces
-  kubectl get certificates --all-namespaces
-
+  
   if [[ $1 != '--upgrade' ]]
   then
     echo
@@ -390,32 +426,54 @@ function installCluster {
     [[ $CLUSTER_LOCAL_DNS_SERVERS != ''  ]] && myInfo "The local cluster should be set as first DNS"
     myInfo "The ports 80 and 443 should be opened and forwarded to the local cluster"
     [[ $RCLONE_END_POINT != '' && ! -s ~/.config/rclone/rclone.conf ]] && myInfo "rclone should be configured to add the end point '$RCLONE_END_POINT' in order to allow backups [rclone config]"
-    for i in $CLUSTER_APPS
-    do
-      myInfo "  +> https://$i.$CLUSTER_DOMAIN"
-    done
     echo
   else
     echo
     myInfo "k0s cluster well upgraded"
     echo
   fi
+  getStatus
+  return 0
+}
+
+function getStatus {
+  myInfo "Helm releases:"
+  helm list --all-namespaces | sed 's/^/  +> /'
+  echo
+  
+  myCert="/etc/letsencrypt/live/$CLUSTER_DOMAIN/cert.pem"
+  if [[ -s $myCert ]]
+  then
+    myInfo "Certificate:"
+    echo "  +> Subject  : $(openssl x509 -in $myCert -noout -subject)"
+    echo "  +> Issuer   : $(openssl x509 -in $myCert -noout -issuer)"
+    echo "  +> Validity : $(openssl x509 -in $myCert -noout -dates | tr '\n' ' ' | sed -e 's/notBefore=//' -e 's/notAfter=/- /')"
+    echo "  +> In secret: $(kubectl --namespace ingress-nginx get secrets ssl-certificate -o jsonpath="{.data.tls\.crt}" | base64 --decode | openssl x509 -noout -subject 2>/dev/null)"
+    echo
+  fi
+
+  myInfo "End points:"
+  for i in $CLUSTER_APPS
+  do
+    echo "  +> https://$i.$CLUSTER_DOMAIN"
+  done
+  echo
+
   getDashboardAccessToken
+  getNextcloudPassword
+
   return 0
 }
 
 function upgradeHelm {
-  helm repo add jetstack https://charts.jetstack.io || myExit "Unable to add the 'jetstack' repo" 
   helm repo add nbaerts  https://nbaerts.github.io/helm-repo  || myExit "Unable to add the 'nbaerts' repo"
   helm repo update
   helm list --all-namespaces --all --no-headers | while read myRelease myNamespace i
   do
     myChart="nbaerts/$myRelease"
-    [[ $myRelease == 'cert-manager' ]] && myChart="jetstack/cert-manager"
     myInfo "Upgrading $myRelease [$myChart]..."
     helm upgrade -n $myNamespace --wait $myRelease $myChart || myExit "Unable to upgrade $myRelease [$myChart]"
   done
-  fixCertManager
 
   echo
   helm list --all-namespaces --all
@@ -436,7 +494,6 @@ function upgradeConfig {
 
   myInfo "Applying new dynamic k0s cluster..."
   kubectl apply -f ~/local-cluster-k0s.yaml || myExit "Unable to apply the new dynamic k0s cluster"
-  fixCertManager
 
   echo
   k0s config status
@@ -470,12 +527,9 @@ then
 fi
 myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
 
-myCertIssuer='letsencrypt-prod'
 while [[ $(echo "#$1" | cut -c2) == '-' ]]
 do
   case $1 in
-    '--staging' ) myCertIssuer='letsencrypt-staging'
-                  shift 1;;
     '-f'        ) [[ $2 == '' || ! -s $2 ]] && usage "An non-empty value file should be provided"
                   myInfo "Applying value file '$2'..."
                   . "$2" || myExit "Unable to interpret '$2'"
@@ -490,7 +544,7 @@ case $1 in
   'upgradeHelm'   ) upgradeHelm;;
   'upgradeConfig' ) upgradeConfig;;
   'uninstall'     ) uninstallCluster;;
-  'getToken'      ) getDashboardAccessToken --force;;
+  'status'        ) getStatus;;
   *               ) usage "A valid action should be specified";;
 esac
 exit 0

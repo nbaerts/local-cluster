@@ -5,11 +5,14 @@ CLUSTER_DOMAIN=
 CLUSTER_EMAIL=
 
 # Cluster applications (space separated) [known apps: see https://github.com/nbaerts/local-cluster/]
-CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent dashboard vaultwarden home-assistant"
+CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent dashboard vaultwarden home-assistant nextcloud"
 
 # Vaultwarden admin token (result of the command below)
 #   echo -n "<AdminToken>" | argon2 "$(openssl rand -base64 32)" -e -id -k 19456 -t 2 -p 1
 VAULTWARDEN_ADMIN_TOKEN=''
+
+# Home assistant USB dongles (comma separated list) (ex: ttyUSB0)
+HA_DONGLES=
 
 # SMTP Host / Port / Username / Password
 SMTP_HOST=

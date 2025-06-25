@@ -9,10 +9,12 @@ global:
 directories:
   config: /opt/home-assistant/config
 
+# Dongles (ex: ttyUSB0)
+dongles: []
+
 # Ingress 
 ingress:
   class: nginx
-  clusterIssuer: letsencrypt-prod
 
 # Configuration for Home Assistant
 configuration:

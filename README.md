@@ -50,6 +50,11 @@ Execute the following command under root (or sudo root):
 - 🔒 [`vaultwarden`](https://github.com/dani-garcia/vaultwarden): Lightweight, open-source server for Bitwarden clients (password manager,...)
 - ⚙️ [`dashboard`](https://github.com/kubernetes/dashboard/): Kubernetes dashboard
 - 🏠 [`home-assistant`](https://www.home-assistant.io/): Open source home automation
+<!-- 
+- ☁️ [`nextcloud`](https://nextcloud.com/): Open source cloud platform
+    - 🗄️ [`mariadb`](https://mariadb.org/): Database server
+    - 📒 [`redis`](https://redis.io/): Remote Dictionary (caching) Server
+-->
 
 ## Thanks
-Built on the backs of [`k0s`](https://docs.k0sproject.io/stable/), [`ultimatehomeserver.com`](https://ultimatehomeserver.com/), [`*arr stack`](https://wiki.servarr.com/), [`linuxserver.io`](https://www.linuxserver.io/), and more awesome open-source projects.
+Built on the backs of [`k0s`](https://docs.k0sproject.io/stable/), [`ultimatehomeserver.com`](https://ultimatehomeserver.com/), [`*arr stack`](https://wiki.servarr.com/), [`linuxserver.io`](https://www.linuxserver.io/), [`bitnami.com`](https://bitnami.com/), and more awesome open-source projects.

@@ -12,4 +12,3 @@ directories:
 # Ingress 
 ingress:
   class: nginx
-  clusterIssuer: letsencrypt-prod
