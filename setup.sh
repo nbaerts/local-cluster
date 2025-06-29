@@ -522,7 +522,7 @@ myIp=$(hostname -I | awk '{print $1}')
 myGid=$(id -g local-cluster)
 if [[ $? -ne 0 ]]
 then
-  adduser --system local-cluster --group || myExit "Unable to create the system user 'local-cluster'"
+  adduser --system local-cluster --group --ingroup dialout|| myExit "Unable to create the system user 'local-cluster'"
   myGid=$(id -g local-cluster) || myExit "System group 'local-cluster' not well created"
 fi
 myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
