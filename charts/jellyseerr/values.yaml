@@ -1,0 +1,11 @@
+# Global app
+global:
+  host: jellyseerr.domain.com
+
+# Directories
+directories:
+  config: /opt/jellyseerr/config
+
+# Ingress 
+ingress:
+  class: nginx

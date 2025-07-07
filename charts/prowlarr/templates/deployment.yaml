@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      containers:
+        - name: prowlarr
+          image: "lscr.io/linuxserver/prowlarr:latest"
+          imagePullPolicy: Always
+          env:
+            - name: PUID
+              value: {{ .Values.global.uid | quote }}
+            - name: PGID
+              value: {{ .Values.global.gid | quote }}
+            - name: TZ
+              value: {{ .Values.global.tz | quote }}
+          ports:
+            - name: http
+              containerPort: 9696
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /config
+              name: config
+      volumes:
+        - name: config
+          hostPath:
+            path: {{ .Values.directories.config | quote }}
+            type: Directory

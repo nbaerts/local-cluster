@@ -1,0 +1,249 @@
+# Global app
+global:
+  host: vaultwarden.domain.com
+  uid: 1000
+  gid: 1000
+
+# Directories
+directories:
+  config: /opt/vaultwarden/config
+
+# Ingress 
+ingress:
+  class: nginx
+
+## Token for the admin interface, preferably an Argon2 PCH string
+adminToken:
+  value: ""
+
+## @section SMTP Configuration
+smtp:
+  ## @param smtp.host SMTP host
+  host: ""
+  ## @param smtp.security SMTP Encryption method
+  ## Possible values:
+  ##  - starttls: explicit TLS using ports 587 or 25
+  ##  - force_tls: implicit TLS using port 465
+  ##  - off: no encryption, using port 25, unless using STARTTLS
+  security: "starttls"
+  ## @param smtp.port SMTP port
+  port: 25
+  ## @param smtp.from SMTP sender email address
+  from: ""
+  ## @param smtp.fromName SMTP sender FROM
+  fromName: ""
+  ## Username for SMTP authentication.
+  username:
+    ## @param smtp.username.value Username string for the SMTP authentication.
+    value: ""
+  ## Password for SMTP authentication.
+  password:
+    ## @param smtp.password.value Password string for the SMTP authentication.
+    value: ""
+  ## @param smtp.authMechanism SMTP authentication mechanism
+  ## Possible values: "Plain", "Login", "Xoauth2"
+  ## Multiple options need to be separated by a comma. (not tested)
+  authMechanism: "Plain"
+  ## @param smtp.acceptInvalidHostnames Accept Invalid Hostnames
+  acceptInvalidHostnames: "false"
+  ## @param smtp.acceptInvalidCerts Accept Invalid Certificates
+  acceptInvalidCerts: "false"
+  ## @param smtp.debug SMTP debugging
+  debug: false
+
+## @param webVaultEnabled Enable Web Vault
+webVaultEnabled: "true"
+
+## @section Database
+database:
+  ## @param database.connectionRetries Number of times to retry the database connection during startup, with 1 second delay between each retry, set to 0 to retry indefinitely.
+  connectionRetries: 15
+  ## @param database.maxConnections Define the size of the connection pool used for connecting to the database.
+  maxConnections: 10
+
+## @section Push Notifications
+## Refer to https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Mobile-Client-push-notification for details
+pushNotifications:
+  ## @param pushNotifications.enabled Enable the push notification service
+  enabled: false
+  installationId:
+    ## @param pushNotifications.installationId.value Bitwarden installation id string
+    value: ""
+  installationKey:
+    ## @param pushNotifications.installationKey.value Bitwarden installation key string
+    value: ""
+  ## @param pushNotifications.relayUri Change Bitwarden relay uri.
+  ## Refer to https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Mobile-Client-push-notification for details
+  relayUri: "https://push.bitwarden.com"
+  ## @param pushNotifications.identityUri Change Bitwarden identity uri.
+  ## Refer to https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Mobile-Client-push-notification for details
+  identityUri: "https://identity.bitwarden.com"
+
+## @param emergencyNotifReminderSched Cron schedule of the job that sends expiration reminders to emergency access grantors.
+## Set to blank to disable this job.
+emergencyNotifReminderSched: "0 3 * * * *"
+
+## @param emergencyRqstTimeoutSched Cron schedule of the job that grants emergency access requests that have met the required wait time.
+## Set to blank to disable this job.
+emergencyRqstTimeoutSched: "0 7 * * * *"
+
+## @param eventCleanupSched Cron schedule of the job that cleans old events from the event table.
+## Set to blank to disable this job. Also without eventsDayRetain set, this job will not start.
+eventCleanupSched: "0 10 0 * * *"
+
+## @param eventsDayRetain Number of days to retain events stored in the database.
+## If unset (the default), events are kept indefinitely and the scheduled job is disabled!
+eventsDayRetain: ""
+
+## @param sendsAllowed Controls whether users are allowed to create Bitwarden Sends.
+sendsAllowed: "true"
+
+## @param hibpApiKey HaveIBeenPwned API Key
+hibpApiKey: ""
+
+## @param orgAttachmentLimit Max Kilobytes of attachment storage allowed per organization.
+## When this limit is reached, organization members will not be allowed to upload further attachments for ciphers owned by that organization.
+orgAttachmentLimit: ""
+
+## @param userAttachmentLimit Max kilobytes of attachment storage allowed per user.
+## When this limit is reached, the user will not be allowed to upload further attachments.
+userAttachmentLimit: ""
+
+## @param userSendLimit Max kilobytes of send storage allowed per user.
+## When this limit is reached, the user will not be allowed to upload further sends.
+userSendLimit: ""
+
+## @param trashAutoDeleteDays Number of days to wait before auto-deleting a trashed item.
+## If unset (the default), trashed items are not auto-deleted.
+## This setting applies globally, so make sure to inform all users of any changes to this setting.
+trashAutoDeleteDays: ""
+
+## @param signupsAllowed By default, anyone who can access your instance can register for a new account.
+## To disable this, set this parameter to false. Even when signupsAllowed=false, an existing user who is
+## an organization owner or admin can still invite new users. If you want to disable this as well, set
+## invitationsAllowed to false. The vaultwarden admin can invite anyone via the admin page, regardless
+## of any of the restrictions above
+## If signupDomains is set, then the value of signupsAllowed is ignored
+signupsAllowed: false
+
+## @param signupsVerify Whether to require account verification for newly-registered users.
+signupsVerify: "true"
+
+## @param signupDomains List of domain names for users allowed to register. For example:
+## example.com,example.net,example.org.
+signupDomains: ""
+
+## @param orgEventsEnabled Controls whether event logging is enabled for organizations
+orgEventsEnabled: "false"
+
+## @param orgCreationUsers Controls which users can create new orgs.
+## Blank or 'all' means all users can create orgs.
+## 'none' means no users can create orgs.
+## A comma-separated list means only those users can create orgs.
+orgCreationUsers: ""
+
+## @param invitationsAllowed Even when registration is disabled, organization administrators or owners can
+## invite users to join organization. After they are invited, they can register with the invited email even
+## if signupsAllowed is actually set to false. You can disable this functionality completely by setting
+## invitationsAllowed env variable to false
+invitationsAllowed: true
+
+## @param invitationOrgName String Name shown in the invitation emails that don't come from a specific organization
+invitationOrgName: "Vaultwarden"
+
+## @param invitationExpirationHours The number of hours after which an organization invite token, emergency access invite token,
+## email verification token and deletion request token will expire (must be at least 1)
+invitationExpirationHours: "120"
+
+## @param emergencyAccessAllowed Controls whether users can enable emergency access to their accounts.
+emergencyAccessAllowed: "true"
+
+## @param emailChangeAllowed Controls whether users can change their email.
+## This setting applies globally to all users
+emailChangeAllowed: "true"
+
+## @param showPassHint Controls whether a password hint should be shown directly in the web page if
+## SMTP service is not configured. Not recommended for publicly-accessible instances
+## as this provides unauthenticated access to potentially sensitive data.
+showPassHint: "false"
+
+## @param ipHeader Client IP Header, used to identify the IP of the client
+ipHeader: "X-Real-IP"
+
+## @param iconService The predefined icon services are: internal, bitwarden, duckduckgo, google.
+iconService: "internal"
+
+## @param iconRedirectCode Icon redirect code
+iconRedirectCode: "302"
+
+## @param iconBlacklistNonGlobalIps Whether block non-global IPs.
+## Useful to secure your internal environment: See https://en.wikipedia.org/wiki/Reserved_IP_addresses for a list of IPs which it will block
+iconBlacklistNonGlobalIps: "true"
+
+## @param experimentalClientFeatureFlags Comma separated list of experimental features to enable in clients, make sure to check which features are already enabled by default (.env.template)
+## Possible values:
+##  - "autofill-overlay": Add an overlay menu to form fields for quick access to credentials.
+##  - "autofill-v2": Use the new autofill implementation.
+##  - "browser-fileless-import": Directly import credentials from other providers without a file.
+##  - "fido2-vault-credentials": Enable the use of FIDO2 security keys as second factor.
+experimentalClientFeatureFlags: null
+
+## @param requireDeviceEmail Require new device emails. When a user logs in an email is required to be sent.
+requireDeviceEmail: "false"
+
+## @param extendedLogging Enable extended logging, which shows timestamps and targets in the logs
+extendedLogging: "true"
+
+## @param logTimestampFormat Timestamp format used in extended logging.
+logTimestampFormat: "%Y-%m-%d %H:%M:%S.%3f"
+
+logging:
+  ## @param logging.logLevel Specify the log level
+  logLevel: ""
+  ## @param logging.logFile Log to a file
+  logFile: ""
+
+## @param adminRateLimitSeconds Number of seconds, on average, between admin login requests from the same IP address before rate limiting kicks in.
+adminRateLimitSeconds: "300"
+
+## @param adminRateLimitMaxBurst Allow a burst of requests of up to this size, while maintaining the average indicated by adminRateLimitSeconds.
+adminRateLimitMaxBurst: "3"
+
+## @param timeZone Specify timezone different from the default (UTC).
+## For example: "Europe/Berlin"
+timeZone: ""
+
+## @param orgGroupsEnabled Controls whether group support is enabled for organizations
+orgGroupsEnabled: "false"
+
+## Yubico (Yubikey) settings
+## Reference: https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Yubikey-OTP-authentication
+yubico:
+  ## @param yubico.clientId Yubico client ID
+  clientId: ""
+  ## Yubico secret key
+  secretKey:
+    ## @param yubico.secretKey.value secretKey plain text
+    value: ""
+  ## @param yubico.server Specify a Yubico server, otherwise the default servers will be used
+  server: ""
+
+## Duo settings
+## Reference: https://help.bitwarden.com/article/setup-two-step-login-duo/#create-a-duo-security-account
+duo:
+  ## @param duo.iKey Duo Integration Key
+  iKey: ""
+  ## Duo secret key
+  sKey:
+    ## @param duo.sKey.value sKey plain text
+    value: ""
+  ## @param duo.hostname Duo API hostname
+  hostname: ""
+
+## @param rocket.address Address to bind to
+## @param rocket.port Rocket port
+## @param rocket.workers Rocket number of workers
+rocket:
+  address: "0.0.0.0"
+  port: "8080"
+  workers: "10"

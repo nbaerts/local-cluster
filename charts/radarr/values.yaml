@@ -1,0 +1,15 @@
+# Global app
+global:
+  host: radarr.domain.com
+  uid: 1000
+  gid: 1000
+  tz: Etc/UTC
+
+# Directories
+directories:
+  config: /opt/radarr/config
+  media: /opt/media
+
+# Ingress 
+ingress:
+  class: nginx

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sabnzbd
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sabnzbd
+  template:
+    metadata:
+      labels:
+        app: sabnzbd
+    spec:
+      containers:
+        - name: sabnzbd
+          image: "lscr.io/linuxserver/sabnzbd:latest"
+          imagePullPolicy: Always
+          env:
+            - name: PUID
+              value: {{ .Values.global.uid | quote }}
+            - name: PGID
+              value: {{ .Values.global.gid | quote }}
+            - name: TZ
+              value: {{ .Values.global.tz | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          hostPath:
+            path: {{ .Values.directories.config | quote }}
+            type: Directory
+        - name: data
+          hostPath:
+            path: {{ .Values.directories.media | quote }}
+            type: Directory

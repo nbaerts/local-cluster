@@ -1,0 +1,12 @@
+# Global app
+global:
+  host: web.domain.com
+
+# Httpd image
+httpd:
+  image:
+    tag: 2-alpine
+
+# Ingress 
+ingress:
+  class: nginx

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jellyfin
+  template:
+    metadata:
+      labels:
+        app: jellyfin
+    spec:
+      containers:
+        - name: jellyfin
+          image: "docker.io/jellyfin/jellyfin:latest"
+          imagePullPolicy: Always
+          env:
+            - name: PUID
+              value: {{ .Values.global.uid | quote }}
+            - name: PGID
+              value: {{ .Values.global.gid | quote }}
+            - name: TZ
+              value: {{ .Values.global.tz | quote }}
+            - name: "JELLYFIN_PublishedServerUrl"
+              value: {{ .Values.global.host | quote }}
+          ports:
+            - name: http
+              containerPort: 8096
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 10
+            tcpSocket:
+              port: http
+          readinessProbe:
+            initialDelaySeconds: 10
+            tcpSocket:
+              port: http
+          volumeMounts:
+            - mountPath: /config
+              name: config
+            - mountPath: /media
+              name: media
+      volumes:
+        - name: config
+          hostPath:
+            path: {{ .Values.directories.config | quote }}
+            type: Directory
+        - name: media
+          hostPath:
+            path: {{ .Values.directories.media | quote }}
+            type: Directory

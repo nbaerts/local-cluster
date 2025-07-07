@@ -1,0 +1,15 @@
+# Global app
+global:
+  host: qbittorrent.domain.com
+  uid: 1000
+  gid: 1000
+  tz: Etc/UTC
+
+# Directories
+directories:
+  config: /opt/qbittorrent/config
+  media: /opt/media
+
+# Ingress 
+ingress:
+  class: nginx

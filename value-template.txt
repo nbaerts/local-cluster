@@ -1,0 +1,48 @@
+# Domain name
+CLUSTER_DOMAIN=
+
+# Cluster email
+CLUSTER_EMAIL=
+
+# Cluster applications (space separated) [known apps: see https://github.com/nbaerts/local-cluster/]
+CLUSTER_APPS="jellyfin jellyseerr prowlarr radarr sonarr qbittorrent dashboard vaultwarden home-assistant nextcloud"
+
+# Vaultwarden admin token (result of the command below)
+#   echo -n "<AdminToken>" | argon2 "$(openssl rand -base64 32)" -e -id -k 19456 -t 2 -p 1
+VAULTWARDEN_ADMIN_TOKEN=''
+
+# Home assistant USB dongles (comma separated list) (ex: ttyUSB0)
+HA_DONGLES=
+
+# SMTP Host / Port / Username / Password
+SMTP_HOST=
+SMTP_PORT=465
+SMTP_USERNAME=
+SMTP_PASSWORD=
+
+# SMTP Encryption method
+# Possible values:
+#  - starttls: explicit TLS using ports 587 or 25
+#  - force_tls: implicit TLS using port 465
+#  - off: no encryption, using port 25, unless using STARTTLS
+SMTP_SECURITY=force_tls
+
+# SMTP Authentication mechanism
+# Possible values: "Plain", "Login", "Xoauth2"
+SMTP_AUTHMECHANISM=Plain
+
+# rclone end point name for backup (ex: gdrive)
+RCLONE_END_POINT=
+
+# Cluster timezone (see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List)
+CLUSTER_TZ="Etc/UTC"
+
+# DNS: Setup local DNS servers (space separated) [empty if not needed]
+CLUSTER_LOCAL_DNS_SERVERS="8.8.8.8 8.8.4.4"
+
+# duckdns: duckdns.org token to keep the external IP of the duckdns.org domain up-to-date 
+DUCKDNS_TOKEN=
+
+# SSH connection: public rsa key to authorize
+SSH_AUTHORIZED_KEY=
+

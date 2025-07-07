@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vaultwarden
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vaultwarden
+  template:
+    metadata:
+      labels:
+        app: vaultwarden
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.global.uid }}
+        runAsGroup: {{ .Values.global.gid }}
+        fsGroup: {{ .Values.global.gid }}
+      containers:
+        - name: vaultwarden
+          image: "docker.io/vaultwarden/server:latest"
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vaultwarden-config
+          env:
+          {{- if .Values.yubico.secretKey.value }}
+            - name: YUBICO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: YUBICO_SECRET_KEY
+          {{- end }}
+          {{- if .Values.duo.sKey.value }}
+            - name: DUO_SKEY
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: DUO_SKEY
+          {{- end }}  
+          {{- if .Values.smtp.username.value }}
+            - name: SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: SMTP_USERNAME
+          {{- end }}
+          {{- if .Values.smtp.password.value }}
+            - name: SMTP_PASSWORD
+              valueFrom:
+              secretKeyRef:
+                name: vaultwarden-secret
+                key: SMTP_PASSWORD
+          {{- end }}
+          {{- if .Values.adminToken }}
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: ADMIN_TOKEN
+          {{- else }}
+            - name: DISABLE_ADMIN_TOKEN
+              value: "true"
+          {{- end }}
+          {{- if .Values.pushNotifications.installationId.value }}
+            - name: PUSH_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: PUSH_INSTALLATION_ID
+          {{- end }}
+          {{- if or .Values.pushNotifications.installationKey.value }}
+            - name: PUSH_INSTALLATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: PUSH_INSTALLATION_KEY
+          {{- end }}
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - mountPath: /data
+              name: config
+      volumes:
+        - name: config
+          hostPath:
+            path: {{ .Values.directories.config | quote }}
+            type: Directory

@@ -1,0 +1,4 @@
+# TLS certificate
+tls:
+  crt: ""   # Base64 encoded full cert; overrides default dummy
+  key: ""   # Base64 encoded private key; overrides default dummy
