@@ -3,8 +3,12 @@ global:
   host: home-assistant.domain.com
   uid: 1000
   gid: 1000
-  sgids: [20]    # dialout group to access USB devices
+  #sgids: [20]    # dialout group to access USB devices
+  sgids: 20       # dialout group to access USB devices
   tz: Etc/UTC
+
+# Extra packages
+packages: iputils
 
 # Directories
 directories:

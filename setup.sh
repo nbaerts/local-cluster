@@ -189,6 +189,12 @@ function createDirs {
   return 0
 }
 
+function runHaAsRootLess {
+  [[ $(echo " $CLUSTER_APPS " | grep ' home-assistant ') == '' ]] && return 0
+  myInfo "Setup Home Assistant as non-root using the official docker image..."
+  cd /opt/home-assistant/config && git clone https://github.com/tribut/homeassistant-docker-venv docker && chown -R local-cluster:local-cluster docker
+}
+
 function resetNode {
   myInfo "Reseting the k0s node..."
   k0s reset 2>/dev/null
@@ -293,7 +299,7 @@ function installControler {
 
 function waitForHelm {
   myInfo -n "Waiting for the $1 deployment"
-  let i=60
+  let i=200
   while [[ $i -gt 0 ]]
   do
     printf '.'
@@ -404,6 +410,7 @@ function installCluster {
   setupLocalDns
   installClusterTools
   createDirs
+  runHaAsRootLess
 
   stopNode
   installK0s
@@ -490,6 +497,7 @@ function upgradeConfig {
   [[ $myVariables != '' ]] && myExit "The variable(s)$myVariables should not be emptied"
   
   createDirs
+  runHaAsRootLess
   createNodeConfig
 
   myInfo "Applying new dynamic k0s cluster..."

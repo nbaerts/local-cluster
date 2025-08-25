@@ -16,10 +16,10 @@ spec:
         app: home-assistant
     spec:
       securityContext:
-        runAsUser: {{ .Values.global.uid }}
-        runAsGroup: {{ .Values.global.gid }}
+        #runAsUser: {{ .Values.global.uid }}
+        #runAsGroup: {{ .Values.global.gid }}
         fsGroup: {{ .Values.global.gid }}
-        supplementalGroups: {{ .Values.global.sgids }}
+        #supplementalGroups: {{ .Values.global.sgids }}
       initContainers:
         - name: setup-config
           image: mikefarah/yq:4
@@ -45,6 +45,17 @@ spec:
           securityContext:
             privileged: true 
           imagePullPolicy: Always
+          env:
+            - name: PUID
+              value: {{ .Values.global.uid | quote }}
+            - name: PGID
+              value: {{ .Values.global.gid | quote }}
+            - name: EXTRA_GID
+              value: {{ .Values.global.sgids | quote }}
+            - name: TZ
+              value: {{ .Values.global.tz | quote }}
+            - name: "PACKAGES"
+              value: {{ .Values.packages | quote }}
           ports:
             - name: http
               containerPort: 8123
@@ -70,6 +81,8 @@ spec:
           volumeMounts:
             - mountPath: /config
               name: config
+            - mountPath: /etc/services.d/home-assistant
+              name: config-run
 {{ range $dongle:= $dongles }}
             - name: a{{ $dongle | lower }}a
               mountPath: /dev/{{ $dongle }}
@@ -81,6 +94,10 @@ spec:
         - name: config-volume
           configMap:
             name: hass-configuration
+        - name: config-run
+          hostPath:
+            path: "{{ .Values.directories.config }}/docker"
+            type: Directory
         - name: config
           hostPath:
             path: {{ .Values.directories.config | quote }}
