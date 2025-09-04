@@ -105,7 +105,7 @@ myTar="/opt/backup/local-cluster/local-cluster.\$(date '+%Y-%m-%d').tar"
 echo "INFO: Backuping [\$myTar]..."
 tar --exclude='/opt/*/config/metadata' --exclude='/opt/*/config/Backups' --exclude='/opt/*/config/logs' -cvf \$myTar $myFiles && gzip \$myTar || exit 2
 echo "INFO: Keeping the last 3 backups only..."
-ls -tp | grep -v '/$' | tail -n +4 | xargs -I {} rm -- {}
+cd /opt/backup/local-cluster && ls -tp | grep -v '/$' | tail -n +4 | xargs -I {} rm -- {}
 echo "INFO: Pushing backup with rclone..."
 rclone mkdir $RCLONE_END_POINT:local-cluster && rclone -v sync /opt/backup/local-cluster $RCLONE_END_POINT:local-cluster >/opt/backup/local-cluster.log 2>&1 || exit 2
 exit 0
@@ -114,6 +114,22 @@ EOF
   chmod 755 /opt/backup/local-cluster.sh || myExit "Not able to chmod '/opt/backup/local-cluster.sh'"
   crontab -l | egrep -v -e '^$' -e 'local-cluster.sh' >/opt/backup/local-cluster.crontab && printf '0 2 * * * /opt/backup/local-cluster.sh >/opt/backup/local-cluster.log 2>&1\n\n' >>/opt/backup/local-cluster.crontab || myExit "Unable to create '/opt/backup/local-cluster.crontab'"
   crontab /opt/backup/local-cluster.crontab || myExit "Unable to update the crontab"
+  return 0
+}
+
+function setupReboot {
+  [[ $AUTO_UPGRADE == '' ]] && return 0
+  myInfo "Adding the auto upgrade [$AUTO_UPGRADE]..."
+  mkdir -p /opt/auto-upgrade || myExit "Unable to create '/opt/auto-upgrade'"
+  cat >/opt/auto-upgrade/reinstall-cluster.sh << EOF
+echo "INFO: Re-install the cluster..."
+$myFullName $myOptions install || exit 2
+exit 0
+EOF
+  [[ $? -ne 0 ]] && myExit "Not able to create '/opt/auto-upgrade/reinstall-cluster.sh'"
+  chmod 755 /opt/auto-upgrade/reinstall-cluster.sh || myExit "Not able to chmod '/opt/auto-upgrade/reinstall-cluster.sh'"
+  crontab -l | egrep -v -e '^$' -e 'reinstall-cluster.sh' >/opt/auto-upgrade/reinstall-cluster.crontab && printf "$AUTO_UPGRADE /opt/auto-upgrade/reinstall-cluster.sh >/opt/auto-upgrade/reinstall-cluster.log 2>&1\n\n" >>/opt/auto-upgrade/reinstall-cluster.crontab || myExit "Unable to create '/opt/auto-upgrade/reinstall-cluster.crontab'"
+  crontab /opt/auto-upgrade/reinstall-cluster.crontab || myExit "Unable to update the crontab"
   return 0
 }
 
@@ -407,6 +423,7 @@ function installCluster {
   setupDuckdnsIpRefresh
   generateDuckdnsCertificate
   setupBackup
+  setupReboot
   setupLocalDns
   installClusterTools
   createDirs
@@ -523,6 +540,8 @@ function uninstallCluster {
 }
 
 ### MAIN
+myFullName="$0"
+[[ $(echo "$myFullName" | cut -f 1) != '/' ]] && myFullName="$(pwd)/$myFullName"
 myBasename=$(basename $0)
 myIp=$(hostname -I | awk '{print $1}')
 [[ $(whoami) != 'root' ]] && usage "Script to be executed under root"
@@ -535,12 +554,16 @@ then
 fi
 myUid=$(id -u local-cluster) || myExit "System user 'local-cluster' not well created"
 
+myOptions=
 while [[ $(echo "#$1" | cut -c2) == '-' ]]
 do
   case $1 in
     '-f'        ) [[ $2 == '' || ! -s $2 ]] && usage "An non-empty value file should be provided"
                   myInfo "Applying value file '$2'..."
                   . "$2" || myExit "Unable to interpret '$2'"
+                  myOptionName="$2"
+                  [[ $(echo "$myOptionName" | cut -f 1) != '/' ]] && myOptionName="$(pwd)/$myOptionName"
+                  myOptions="$myOptions -f $myOptionName"
                   shift 2;;
     *           ) usage "Unknown option '$1'";;
   esac
